@@ -1,7 +1,4 @@
-import java.awt.BorderLayout
-import java.awt.Color
-import java.awt.Component
-import java.awt.Dimension
+import java.awt.*
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
@@ -27,8 +24,8 @@ class EncryptDecryptApp {
 
         tabbedPane.add("Encrypt Text", createTextTab("Encrypt", encryptionService::encryptText))
         tabbedPane.add("Decrypt Text", createTextTab("Decrypt", encryptionService::decryptText))
-//        tabbedPane.add("Encrypt File", createFileTab("Encrypt", encryptionService::encryptBytes))
-//        tabbedPane.add("Decrypt File", createFileTab("Decrypt", encryptionService::decryptBytes))
+        tabbedPane.add("Encrypt File", createFileTab("Encrypt", encryptionService::encryptBytes))
+        tabbedPane.add("Decrypt File", createFileTab("Decrypt", encryptionService::decryptBytes))
 
         frame.contentPane.add(tabbedPane, BorderLayout.CENTER)
         frame.setSize(800, 600)
@@ -107,9 +104,11 @@ class EncryptDecryptApp {
 
         val filePathField = JTextField()
         val passphraseField = JPasswordField()
-        val filePathFieldSize = Dimension(Integer.MAX_VALUE, filePathField.preferredSize.height)
-        filePathField.maximumSize = filePathFieldSize
-        filePathField.minimumSize = filePathFieldSize
+        val fieldSize = Dimension(Integer.MAX_VALUE, filePathField.preferredSize.height)
+        filePathField.maximumSize = fieldSize
+        filePathField.minimumSize = fieldSize
+        passphraseField.maximumSize = fieldSize
+        passphraseField.minimumSize = fieldSize
         filePathField.alignmentX = Component.LEFT_ALIGNMENT
         passphraseField.alignmentX = Component.LEFT_ALIGNMENT
 
@@ -129,21 +128,37 @@ class EncryptDecryptApp {
             val bytes = Files.readAllBytes(file.toPath())
             val result = function(bytes, passphrase)
             result.onSuccess { processedBytes ->
-                val outputFilePath = if (tabName == "Encrypt") "$filePath.enc" else "$filePath.dec"
-                Files.write(Path.of(outputFilePath), processedBytes)
-                JOptionPane.showMessageDialog(frame, "File processed successfully.\nOutput file: $outputFilePath")
+                val outputFileChooser = JFileChooser()
+                val originalFileName = file.name
+                val initialFileName = if (tabName == "Decrypt" && originalFileName.endsWith(".enc"))
+                    originalFileName.removeSuffix(".enc")
+                else
+                    originalFileName + (if (tabName == "Encrypt") ".enc" else "")
+                val currentDirectory = file.parentFile
+                outputFileChooser.selectedFile = File(currentDirectory, initialFileName)
+                if (outputFileChooser.showSaveDialog(frame) == JFileChooser.APPROVE_OPTION) {
+                    val outputFile = outputFileChooser.selectedFile
+                    Files.write(outputFile.toPath(), processedBytes)
+                    JOptionPane.showMessageDialog(frame, "File processed successfully.\nOutput file: ${outputFile.path}")
+                }
             }.onFailure { exception ->
                 JOptionPane.showMessageDialog(frame, "An error occurred: ${exception.localizedMessage}", "Error", JOptionPane.ERROR_MESSAGE)
             }
+        }
+
+        val filePathPanel = JPanel(BorderLayout(5, 5)).apply {
+            alignmentX = Component.LEFT_ALIGNMENT
+            maximumSize = fieldSize
+            minimumSize = fieldSize
+            add(filePathField, BorderLayout.CENTER)
+            add(browseButton, BorderLayout.EAST)
         }
 
         panel.border = EmptyBorder(10, 40, 20, 40)
         panel.add(Box.createVerticalStrut(10))
         panel.add(JLabel("File Path:"))
         panel.add(Box.createVerticalStrut(5))
-        panel.add(filePathField)
-        panel.add(Box.createVerticalStrut(10))
-        panel.add(browseButton)
+        panel.add(filePathPanel)
         panel.add(Box.createVerticalStrut(10))
         panel.add(JLabel("Passphrase:"))
         panel.add(Box.createVerticalStrut(5))
